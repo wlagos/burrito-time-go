@@ -17,12 +17,20 @@ jobs:
           - platform: macos-latest
             target: x86_64-apple-darwin
             name: macOS-Intel
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: Windows
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            name: Linux
+
+          # ──────────────────────────────────────────────────────────────
+          # WINDOWS BUILD - uncomment the 3 lines below to enable
+          # ──────────────────────────────────────────────────────────────
+          # - platform: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   name: Windows
+
+          # ──────────────────────────────────────────────────────────────
+          # LINUX BUILD - uncomment the 3 lines below to enable
+          # ──────────────────────────────────────────────────────────────
+          # - platform: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   name: Linux
 
     runs-on: ${{ matrix.platform }}
     name: Build ${{ matrix.name }}
@@ -45,6 +53,11 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
+      # ──────────────────────────────────────────────────────────────────
+      # LINUX SYSTEM DEPENDENCIES
+      # If you enable the Linux build above, this step will automatically
+      # run only for Linux. No changes needed here.
+      # ──────────────────────────────────────────────────────────────────
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -60,23 +73,22 @@ jobs:
           mkdir -p src-tauri/icons
           pip3 install Pillow --break-system-packages
           python3 -c "
-          from PIL import Image
+from PIL import Image
 
-          def make_icon(size, path):
-              img = Image.new('RGBA', (size, size), (224, 123, 57, 255))
-              img.save(path, 'PNG')
+def make_icon(size, path):
+    img = Image.new('RGBA', (size, size), (224, 123, 57, 255))
+    img.save(path, 'PNG')
 
-          make_icon(32,  'src-tauri/icons/32x32.png')
-          make_icon(128, 'src-tauri/icons/128x128.png')
-          make_icon(256, 'src-tauri/icons/128x128@2x.png')
-          make_icon(256, 'src-tauri/icons/icon_256.png')
-          make_icon(256, 'src-tauri/icons/icon.ico')
-          make_icon(256, 'src-tauri/icons/icon.icns')
-          print('Icons generated OK')
-          "
+make_icon(32,  'src-tauri/icons/32x32.png')
+make_icon(128, 'src-tauri/icons/128x128.png')
+make_icon(256, 'src-tauri/icons/128x128@2x.png')
+make_icon(256, 'src-tauri/icons/icon_256.png')
+make_icon(256, 'src-tauri/icons/icon.ico')
+make_icon(256, 'src-tauri/icons/icon.icns')
+print('Icons generated OK')
+"
 
       - name: Build proper icns (macOS only)
-        if: matrix.platform == 'macos-latest'
         run: |
           mkdir -p src-tauri/icons/icon.iconset
           for size in 16 32 64 128 256 512; do
@@ -98,16 +110,22 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
 
-      - name: Upload Windows artifact
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+      # ──────────────────────────────────────────────────────────────────
+      # WINDOWS ARTIFACT - uncomment the block below when Windows is enabled
+      # ──────────────────────────────────────────────────────────────────
+      # - name: Upload Windows artifact
+      #   if: matrix.platform == 'windows-latest'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ matrix.name }}
+      #     path: src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
 
-      - name: Upload Linux artifact
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+      # ──────────────────────────────────────────────────────────────────
+      # LINUX ARTIFACT - uncomment the block below when Linux is enabled
+      # ──────────────────────────────────────────────────────────────────
+      # - name: Upload Linux artifact
+      #   if: matrix.platform == 'ubuntu-22.04'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ matrix.name }}
+      #     path: src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
