@@ -2,8 +2,7 @@ name: Build & Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -13,20 +12,20 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: "--target aarch64-apple-darwin"
-            name: "macOS (Apple Silicon)"
+            target: aarch64-apple-darwin
+            name: macOS-AppleSilicon
           - platform: macos-latest
-            args: "--target x86_64-apple-darwin"
-            name: "macOS (Intel)"
+            target: x86_64-apple-darwin
+            name: macOS-Intel
           - platform: windows-latest
-            args: ""
-            name: "Windows"
+            target: x86_64-pc-windows-msvc
+            name: Windows
           - platform: ubuntu-22.04
-            args: ""
-            name: "Linux"
+            target: x86_64-unknown-linux-gnu
+            name: Linux
 
     runs-on: ${{ matrix.platform }}
-    name: ${{ matrix.name }}
+    name: Build ${{ matrix.name }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +38,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -50,14 +54,68 @@ jobs:
       - name: Install JS dependencies
         run: npm install
 
+      - name: Create placeholder icons (Linux/Windows)
+        if: matrix.platform != 'macos-latest'
+        shell: bash
+        run: |
+          mkdir -p src-tauri/icons
+          convert -size 256x256 xc:#e07b39 src-tauri/icons/icon_256.png
+          convert src-tauri/icons/icon_256.png -resize 32x32   src-tauri/icons/32x32.png
+          convert src-tauri/icons/icon_256.png -resize 128x128 src-tauri/icons/128x128.png
+          convert src-tauri/icons/icon_256.png -resize 256x256 src-tauri/icons/128x128@2x.png
+          cp src-tauri/icons/128x128.png src-tauri/icons/icon.icns
+          convert src-tauri/icons/icon_256.png src-tauri/icons/icon.ico
+
+      - name: Create placeholder icons (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p src-tauri/icons
+          # Create a simple orange square as placeholder icon
+          python3 -c "
+          import struct, zlib
+
+          def make_png(w, h, r, g, b):
+              def chunk(name, data):
+                  c = zlib.crc32(name + data) & 0xffffffff
+                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', c)
+              raw = b''.join(b'\x00' + bytes([r,g,b]*w) for _ in range(h))
+              return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB',w,h,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+
+          for name, size in [('32x32',32),('128x128',128),('128x128@2x',256),('icon_256',256)]:
+              open(f'src-tauri/icons/{name}.png','wb').write(make_png(size,size,224,123,57))
+          "
+          # Build icns
+          mkdir -p src-tauri/icons/icon.iconset
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size src-tauri/icons/icon_256.png --out src-tauri/icons/icon.iconset/icon_${size}x${size}.png 2>/dev/null || true
+          done
+          iconutil -c icns src-tauri/icons/icon.iconset -o src-tauri/icons/icon.icns
+          cp src-tauri/icons/128x128.png src-tauri/icons/icon.ico
+
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        run: npm run tauri build -- --target ${{ matrix.target }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: Upload macOS artifact
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Burrito Time Go ${{ github.ref_name }}"
-          releaseBody: "Desktop build of https://burrito-time-go.base44.app"
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: ${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+
+      - name: Upload Windows artifact
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+
+      - name: Upload Linux artifact
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
