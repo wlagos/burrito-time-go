@@ -1,0 +1,18 @@
+[package]
+name = "burrito-time-go"
+version = "1.0.0"
+description = "Desktop wrapper for Burrito Time Go"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "burrito_time_go_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
