@@ -67,26 +67,29 @@ jobs:
       - name: Install JS dependencies
         run: npm install
 
-      - name: Generate RGBA icons
-        shell: bash
+      - name: Write icon generation script
         run: |
           mkdir -p src-tauri/icons
+          printf '%s\n' \
+            "from PIL import Image" \
+            "" \
+            "def make_icon(size, path):" \
+            "    img = Image.new('RGBA', (size, size), (224, 123, 57, 255))" \
+            "    img.save(path, 'PNG')" \
+            "" \
+            "make_icon(32,  'src-tauri/icons/32x32.png')" \
+            "make_icon(128, 'src-tauri/icons/128x128.png')" \
+            "make_icon(256, 'src-tauri/icons/128x128@2x.png')" \
+            "make_icon(256, 'src-tauri/icons/icon_256.png')" \
+            "make_icon(256, 'src-tauri/icons/icon.ico')" \
+            "make_icon(256, 'src-tauri/icons/icon.icns')" \
+            "print('Icons generated OK')" \
+            > /tmp/make_icons.py
+
+      - name: Generate RGBA icons
+        run: |
           pip3 install Pillow --break-system-packages
-          python3 << 'EOF'
-from PIL import Image
-
-def make_icon(size, path):
-    img = Image.new('RGBA', (size, size), (224, 123, 57, 255))
-    img.save(path, 'PNG')
-
-make_icon(32,  'src-tauri/icons/32x32.png')
-make_icon(128, 'src-tauri/icons/128x128.png')
-make_icon(256, 'src-tauri/icons/128x128@2x.png')
-make_icon(256, 'src-tauri/icons/icon_256.png')
-make_icon(256, 'src-tauri/icons/icon.ico')
-make_icon(256, 'src-tauri/icons/icon.icns')
-print('Icons generated OK')
-EOF
+          python3 /tmp/make_icons.py
 
       - name: Build proper icns (macOS only)
         run: |
