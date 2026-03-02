@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p src-tauri/icons
-          pip install Pillow --quiet
+          pip3 install Pillow
           python3 -c "
           from PIL import Image
 
