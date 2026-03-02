@@ -72,7 +72,7 @@ jobs:
         run: |
           mkdir -p src-tauri/icons
           pip3 install Pillow --break-system-packages
-          python3 -c "
+          python3 << 'EOF'
 from PIL import Image
 
 def make_icon(size, path):
@@ -86,7 +86,7 @@ make_icon(256, 'src-tauri/icons/icon_256.png')
 make_icon(256, 'src-tauri/icons/icon.ico')
 make_icon(256, 'src-tauri/icons/icon.icns')
 print('Icons generated OK')
-"
+EOF
 
       - name: Build proper icns (macOS only)
         run: |
