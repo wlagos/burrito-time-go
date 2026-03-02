@@ -4,7 +4,6 @@
   "description": "Default capability for Burrito Time Go",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "core:webview:allow-open-devtools"
+    "core:default"
   ]
 }
